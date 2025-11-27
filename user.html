@@ -53,9 +53,6 @@ async function sendMessage(){
     payload.csat=Number(document.getElementById("csat").value);
     payload.nps=Number(document.getElementById("nps").value);
     payload.ces=Number(document.getElementById("ces").value);
-    document.getElementById("csat").style.display="none";
-    document.getElementById("nps").style.display="none";
-    document.getElementById("ces").style.display="none";
     firstSubmit=false;
   }
   await fetch(`${API}/send`,{
@@ -68,6 +65,7 @@ async function sendMessage(){
   addMessage("user-msg",text);
 }
 
+// Keep textarea for continuous chat
 document.getElementById("send-btn").onclick=sendMessage;
 
 // SSE

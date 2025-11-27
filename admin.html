@@ -5,85 +5,179 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Admin Dashboard</title>
 <style>
-body{font-family:sans-serif;background:#1a0a3e;color:#fff;margin:0;padding:0;}
-main{max-width:600px;margin:2rem auto;padding:2rem;background:rgba(255,255,255,0.05);border-radius:15px;}
-h2{margin-bottom:1rem;color:#d8b4fe;}
-#metrics{margin-bottom:1rem;}
-#metrics span{margin-right:1rem;background:rgba(124,58,237,0.3);padding:0.3rem 0.6rem;border-radius:12px;}
-.chat{height:400px;overflow-y:auto;background:rgba(255,255,255,0.05);padding:1rem;border-radius:15px;display:flex;flex-direction:column;gap:0.5rem;}
-.user-msg{background:rgba(124,58,237,0.3);align-self:flex-start;padding:0.6rem 1rem;border-radius:25px;}
-.admin-msg{background:rgba(255,255,255,0.15);align-self:flex-end;padding:0.6rem 1rem;border-radius:25px;color:#d8b4fe;}
-.bot-msg{background:rgba(255,255,255,0.1);align-self:flex-end;padding:0.6rem 1rem;border-radius:25px;color:#c4b5fd;font-style:italic;}
-#reply{width:100%;padding:0.8rem;margin-top:0.5rem;border-radius:12px;border:1px solid #7c3aed;background:rgba(255,255,255,0.1);color:#fff;}
-button{width:100%;padding:0.8rem;margin-top:0.5rem;border-radius:12px;border:none;background:#7c3aed;color:#fff;cursor:pointer;}
-button:hover{background:#a78bfa;}
+body {
+  margin:0; padding:0;
+  font-family:'Segoe UI', sans-serif;
+  background: linear-gradient(135deg,#1a0a3e,#4b0082);
+  color:#fff;
+}
+main {
+  max-width: 800px;
+  margin: 2rem auto;
+  padding: 2rem;
+  background: rgba(255,255,255,0.05);
+  border-radius: 15px;
+  box-shadow: 0 0 30px rgba(124,58,237,0.6);
+}
+h2 {
+  text-align:center;
+  color:#d8b4fe;
+  margin-bottom:1rem;
+}
+#metrics-badge {
+  text-align:center;
+  padding:0.5rem 1rem;
+  background: rgba(124,58,237,0.4);
+  border-radius:12px;
+  margin-bottom:1rem;
+  font-weight:bold;
+}
+.chat {
+  height:450px;
+  overflow-y:auto;
+  display:flex;
+  flex-direction:column;
+  gap:0.5rem;
+  padding:0.5rem;
+  border-radius:12px;
+  background: rgba(0,0,0,0.1);
+}
+.user-msg, .admin-msg, .bot-msg {
+  padding:0.6rem 1rem;
+  border-radius:25px;
+  max-width:75%;
+  word-wrap:break-word;
+  font-size:0.95rem;
+  position:relative;
+}
+.user-msg {
+  background: rgba(124,58,237,0.3);
+  color:#fff;
+  align-self:flex-start;
+  box-shadow: 0 0 10px #7c3aed60;
+}
+.admin-msg {
+  background: rgba(255,255,255,0.15);
+  color:#d8b4fe;
+  align-self:flex-end;
+  box-shadow: 0 0 10px #a78bfa60;
+}
+.bot-msg {
+  background: rgba(255,255,255,0.1);
+  color:#c4b5fd;
+  font-style:italic;
+  align-self:flex-end;
+  box-shadow: 0 0 10px #c4b5fd60;
+}
+.reply-box {
+  display:flex;
+  gap:0.5rem;
+  margin-top:0.3rem;
+}
+.reply-box input {
+  flex:1;
+  padding:0.5rem;
+  border-radius:12px;
+  border:none;
+  font-size:1rem;
+}
+.reply-box button {
+  padding:0.5rem 1rem;
+  border:none;
+  border-radius:12px;
+  background:#7c3aed;
+  color:#fff;
+  cursor:pointer;
+  font-weight:bold;
+}
 </style>
 </head>
 <body>
 <main>
 <h2>Admin Dashboard</h2>
-<div id="metrics">
-  <span id="csat-badge">CSAT: 0</span>
-  <span id="nps-badge">NPS: 0</span>
-  <span id="ces-badge">CES: 0</span>
-</div>
+<div id="metrics-badge">CSAT: 0 | NPS: 0 | CES: 0 | Sentiment: {"positive":0,"neutral":0,"negative":0}</div>
 <div class="chat" id="chat"></div>
-<input type="text" id="reply" placeholder="Type your reply...">
-<button id="send-btn">Send Reply</button>
 </main>
 
 <script>
-const API="http://127.0.0.1:5000";
-const chatDiv=document.getElementById("chat");
-const replyInput=document.getElementById("reply");
-const sendBtn=document.getElementById("send-btn");
-let messages=[];
-let selectedMsgId=null;
+const API = "http://127.0.0.1:5000";
+const chatDiv = document.getElementById("chat");
+const metricsBadge = document.getElementById("metrics-badge");
+const messages = {}; // store messages by msg_id
 
-// Add chat message
-function addMessage(msg){
-  const div=document.createElement("div");
-  if(msg.bot_replied) div.className="bot-msg";
-  else if(msg.reply && !msg.bot_replied && msg.user_id===msg.user_id) div.className="admin-msg";
-  else div.className="user-msg";
+// Add user message to chat with reply input
+function addUserMessage(msg){
+  if(messages[msg.id]) return; // avoid duplicates
+  messages[msg.id] = msg;
 
-  let text=msg.text;
-  if(msg.ai) text+=" ["+msg.ai.emotion+"]";
-  div.innerText=text;
-  div.onclick=()=>{selectedMsgId=msg.id; replyInput.focus();}
+  const div = document.createElement("div");
+  div.className = "user-msg";
+  div.innerHTML = `<strong>User (${msg.ai.emotion})</strong>: ${msg.text}`;
+
+  // Add reply box
+  const replyBox = document.createElement("div");
+  replyBox.className = "reply-box";
+  const input = document.createElement("input");
+  input.placeholder = "Type reply...";
+  const btn = document.createElement("button");
+  btn.innerText = "Reply";
+
+  btn.onclick = async ()=>{
+    const text = input.value.trim();
+    if(!text) return;
+    await fetch(`${API}/admin_reply`,{
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({msg_id: msg.id, text})
+    });
+    addAdminMessage(msg.id, text);
+    input.value="";
+  };
+
+  replyBox.appendChild(input);
+  replyBox.appendChild(btn);
+  div.appendChild(replyBox);
+
   chatDiv.appendChild(div);
-  chatDiv.scrollTop=chatDiv.scrollHeight;
+  chatDiv.scrollTop = chatDiv.scrollHeight;
 }
 
-// Update metrics
-function updateMetrics(metrics){
-  document.getElementById("csat-badge").innerText="CSAT: "+metrics.csat;
-  document.getElementById("nps-badge").innerText="NPS: "+metrics.nps;
-  document.getElementById("ces-badge").innerText="CES: "+metrics.ces;
+// Add admin message to chat
+function addAdminMessage(msg_id, text){
+  const div = document.createElement("div");
+  div.className = "admin-msg";
+  div.innerText = text;
+  chatDiv.appendChild(div);
+  chatDiv.scrollTop = chatDiv.scrollHeight;
 }
 
-// SSE
-const evtSource=new EventSource(`${API}/admin_stream`);
-evtSource.onmessage=function(event){
-  const data=JSON.parse(event.data);
-  messages=data.messages;
-  chatDiv.innerHTML="";
-  messages.forEach(addMessage);
-  updateMetrics(data.metrics);
+// Add bot message to chat
+function addBotMessage(msg){
+  const div = document.createElement("div");
+  div.className = "bot-msg";
+  div.innerText = msg.reply;
+  chatDiv.appendChild(div);
+  chatDiv.scrollTop = chatDiv.scrollHeight;
 }
 
-// Send reply
-sendBtn.onclick=async ()=>{
-  const text=replyInput.value.trim();
-  if(!text || selectedMsgId===null) return;
-  await fetch(`${API}/admin_reply`,{
-    method:"POST",
-    headers:{"Content-Type":"application/json"},
-    body:JSON.stringify({msg_id:selectedMsgId,text})
-  });
-  replyInput.value="";
-  selectedMsgId=null;
-}
+// SSE for live updates
+const evtSource = new EventSource(`${API}/admin_stream`);
+evtSource.onmessage = (event)=>{
+  const data = JSON.parse(event.data);
+  const msg = data.msg;
+  const metrics = data.metrics;
+
+  // update metrics badge
+  metricsBadge.innerText = `CSAT: ${metrics.csat} | NPS: ${metrics.nps} | CES: ${metrics.ces} | Sentiment: ${JSON.stringify(metrics.sentiment)}`;
+
+  // show user message if new
+  if(!messages[msg.id]) addUserMessage(msg);
+
+  // show bot reply if exists
+  if(msg.bot_replied && msg.reply){
+    addBotMessage(msg);
+  }
+};
 </script>
 </body>
 </html>
