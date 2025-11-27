@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>User Chat</title>
+<style>
+body{font-family:sans-serif;background:#1a0a3e;color:#fff;margin:0;padding:0;}
+main{max-width:500px;margin:2rem auto;padding:2rem;background:rgba(255,255,255,0.05);border-radius:15px;}
+textarea,input{width:100%;margin:0.5rem 0;padding:0.8rem;border-radius:12px;border:1px solid #7c3aed;background:rgba(255,255,255,0.1);color:#fff;}
+button{width:100%;padding:0.8rem;border-radius:12px;border:none;background:#7c3aed;color:#fff;cursor:pointer;}
+button:hover{background:#a78bfa;}
+.chat{margin-top:1rem;padding:1rem;height:350px;overflow-y:auto;display:flex;flex-direction:column;gap:0.5rem;opacity:0;transform:translateY(40px);transition:0.5s;}
+.chat.visible{opacity:1;transform:translateY(0);}
+.user-msg{background:rgba(124,58,237,0.3);align-self:flex-start;padding:0.6rem 1rem;border-radius:25px;}
+.admin-msg{background:rgba(255,255,255,0.15);align-self:flex-end;padding:0.6rem 1rem;border-radius:25px;color:#d8b4fe;}
+.bot-msg{background:rgba(255,255,255,0.1);align-self:flex-end;padding:0.6rem 1rem;border-radius:25px;color:#c4b5fd;font-style:italic;}
+</style>
+</head>
+<body>
+<main>
+<h2>Send Feedback</h2>
+<div id="feedback-fields">
+  <textarea id="text" rows="4" placeholder="Type your message..."></textarea>
+  <input type="number" id="csat" placeholder="CSAT 1-5">
+  <input type="number" id="nps" placeholder="NPS 1-10">
+  <input type="number" id="ces" placeholder="CES 1-5">
+</div>
+<button id="send-btn">Send</button>
+<div class="chat" id="chat"></div>
+</main>
+
+<script>
+const API="http://127.0.0.1:5000";
+const chatDiv=document.getElementById("chat");
+const textInput=document.getElementById("text");
+let user_id=Math.floor(Math.random()*100000);
+let firstSubmit=true;
+
+function addMessage(type,text){
+  const div=document.createElement("div");
+  div.className=type;
+  div.innerText=text;
+  chatDiv.appendChild(div);
+  chatDiv.scrollTop=chatDiv.scrollHeight;
+}
+
+async function sendMessage(){
+  const text=textInput.value.trim();
+  if(!text) return;
+  let payload={text,user_id};
+  if(firstSubmit){
+    payload.csat=Number(document.getElementById("csat").value);
+    payload.nps=Number(document.getElementById("nps").value);
+    payload.ces=Number(document.getElementById("ces").value);
+    document.getElementById("csat").style.display="none";
+    document.getElementById("nps").style.display="none";
+    document.getElementById("ces").style.display="none";
+    firstSubmit=false;
+  }
+  await fetch(`${API}/send`,{
+    method:"POST",
+    headers:{"Content-Type":"application/json"},
+    body:JSON.stringify(payload)
+  });
+  textInput.value="";
+  chatDiv.classList.add("visible");
+  addMessage("user-msg",text);
+}
+
+document.getElementById("send-btn").onclick=sendMessage;
+
+// SSE
+const evtSource=new EventSource(`${API}/user_stream/${user_id}`);
+evtSource.onmessage=function(event){
+  const data=JSON.parse(event.data);
+  if(data.bot_replied) addMessage("bot-msg",data.reply);
+  else addMessage("admin-msg",data.reply);
+}
+</script>
+</body>
+</html>
